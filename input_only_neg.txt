@@ -1,0 +1,6 @@
+PARSE SAT
+-Axp
+--Exq
+-p
+-----------q
+--App
