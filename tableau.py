@@ -1,14 +1,14 @@
 MAX_CONSTANTS = 10
-MAX_EXPAND = 100
+MAX_EXPAND = 30
 QUANTIFIERS = ["A", "E"]
 PROPOSITIONS = ["p", "q", "r", "s"]
 PREDICATES = ["P", "Q", "R", "S"]
 CONNECTIVES = ["^", "v", ">"]
 VAR = ["x", "y", "z", "w"]
 DEBUG_PARSER = False
-DEBUG_SAT = False
+DEBUG_SAT = True
 
-constants = []
+CONSTANTS = [chr(97 + i) for i in range(MAX_CONSTANTS)]
 
 
 # Parse a formula, consult parseOutputs for return values.
@@ -57,7 +57,7 @@ def parse(fmla):
             if fmla[1] == "(" and fmla[-1] == ")":
                 inner_fmlas = fmla[2:-1].split(',')
                 for inner_fmla in inner_fmlas:
-                    if (inner_fmla not in VAR and inner_fmla not in constants) and parse(inner_fmla) == 0:
+                    if (inner_fmla not in VAR and inner_fmla not in CONSTANTS) and parse(inner_fmla) == 0:
                         result = 0
                         break
     if DEBUG_PARSER:
@@ -110,6 +110,9 @@ def theory(fmla):  # initialise a theory with a single formula in it
 # Tableau tab is [theory(fmla)]
 def sat(tab):
     TYPES = ['a', 'b', 'd', 'y', 'p']
+    constants = []
+
+    used_constants_by = {}
 
     # determine whether a theory is fully expanded
     def _exp(this_theory):
@@ -204,8 +207,9 @@ def sat(tab):
                 if DEBUG_SAT:
                     print('constants:', constants, 'len:', len(constants))
                 rlt['arg'] = [this_theory[2:], this_theory[1], constants[-1]]
-        elif fmla_parsed in [1, 6] and DEBUG_SAT:
-            print('sai 1, 6')
+        elif fmla_parsed in [1, 6]:
+            if DEBUG_SAT:
+                print('sai 1, 6')
             rlt['type'] = TYPES[4]
             rlt['arg'] = [this_theory]
         elif DEBUG_SAT:
@@ -221,6 +225,7 @@ def sat(tab):
     while len(tab) != 0 and expand_count < MAX_EXPAND:
         expand_count += 1
         if DEBUG_SAT:
+            print("////////////  TAB  ////////////")
             print("tab: ", tab)
         # sigma this a theory
         sigma = tab.pop(0)
@@ -255,7 +260,7 @@ def sat(tab):
                     if not _c(sig) and sig not in tab:
                         tab.append(sig)
             elif sai['type'] == TYPES[2]:  # delta
-                arg = [args[0].replace(args[1], args[2])]
+                arg = [args[0].replace(args[1], args[2])]  # theory x -> a
                 sig = rest_of_sigma.copy()
                 if arg not in sig:
                     sig += arg
@@ -270,20 +275,38 @@ def sat(tab):
                     for c in fml:
                         if c in constants:
                             arg = [args[0].replace(args[1], c)]
+                            original_fmla = args[2]
                             if arg not in sigma:
-                                sig = rest_of_sigma.copy() + arg + [args[2]]
+                                sig = rest_of_sigma.copy() + arg + [original_fmla]
                                 if not _c(sig) and sig not in tab:
-                                    tab.append(sig)
-                                    found = True
-                                    break
+                                    if original_fmla not in used_constants_by.keys():
+                                        used_constants_by[original_fmla] = [c]
+                                    elif c not in used_constants_by[original_fmla]:
+                                        used_constants_by[original_fmla].append(c)
+                                        tab.append(sig)
+                                        found = True
+                                        break
                     if found:
                         break
+                if not found:
+                    if DEBUG_SAT:
+                        print("discard Ax as all case tried")
+                    tab.append(rest_of_sigma.copy())
+                else:
+                    if DEBUG_SAT:
+                        print("----------USED CONSTANT------------")
+                        print(used_constants_by)
+                        print("----------USED CONSTANT------------")
             elif sai['type'] == TYPES[4]:  # 1, 6
                 tab.append(rest_of_sigma + [args[0]])
     if expand_count >= MAX_EXPAND:
         result = 2
         if DEBUG_SAT:
             print("reached maximum expansion")
+
+    elif len(tab) == 0:
+        if DEBUG_SAT:
+            print('nothing left in tableau')
 
     # output 0 if not satisfiable,
     # output 1 if satisfiable,
