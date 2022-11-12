@@ -6,7 +6,7 @@ PREDICATES = ["P", "Q", "R", "S"]
 CONNECTIVES = ["^", "v", ">"]
 VAR = ["x", "y", "z", "w"]
 DEBUG_PARSER = False
-DEBUG_SAT = False
+DEBUG_SAT = True
 
 constants = []
 
@@ -121,7 +121,7 @@ def sat(tab):
         return True
 
     def _c(this_theory):
-        exist = []
+        exist = common_literals.copy()
         for fml in this_theory:
             if fml[0] == '-':
                 if fml[1:] in exist:
@@ -148,21 +148,24 @@ def sat(tab):
                 connective = con(next_theory)
                 if connective == CONNECTIVES[0]:  # beta 3 -AND
                     rlt['type'] = TYPES[1]
-                    rlt['arg'] = ['-' + lhs(this_theory), '-' + rhs(this_theory)]
+                    rlt['arg'] = ['-' + lhs(next_theory), '-' + rhs(next_theory)]
                 elif connective == CONNECTIVES[1]:  # alpha 3 -OR
                     rlt['type'] = TYPES[0]
-                    rlt['arg'] = ['-' + lhs(this_theory), '-' + rhs(this_theory)]
+                    rlt['arg'] = ['-' + lhs(next_theory), '-' + rhs(next_theory)]
                 elif connective == CONNECTIVES[2]:  # alpha 4 -OR>
                     rlt['type'] = TYPES[0]
-                    rlt['arg'] = [lhs(this_theory), '-' + rhs(this_theory)]
+                    rlt['arg'] = [lhs(next_theory), '-' + rhs(next_theory)]
                 else:
                     print('err 2,7')
             elif next_parsed == 3:  # quantifier A
                 rlt['type'] = TYPES[4]
-                new_fmla = '-' + this_theory[2:]
-                rlt['arg'] = [new_fmla]
             elif next_parsed == 4:  # quantifier E
-                rlt['type'] = TYPES[3]
+                if len(constants) == MAX_CONSTANTS:
+                    print('err max')
+                else:
+                    rlt['type'] = TYPES[3]
+                    constants.append(chr(61 + len(constants)))
+                    rlt['arg'] = ['-' + this_theory[2:], this_theory[1], constants[-1]]
             elif DEBUG_SAT:
                 print('err')
         elif fmla_parsed in [5, 8]:
@@ -178,18 +181,28 @@ def sat(tab):
                 rlt['arg'] = ['-' + lhs(this_theory), rhs(this_theory)]
             elif DEBUG_SAT:
                 print('err 5,8')
-        elif fmla_parsed in [3, 4]:
-            print('skipped gama delta')
-            pass  # quantifier
+        elif fmla_parsed == 3:  # quantifier A
+            rlt['type'] = TYPES[4]
+        elif fmla_parsed == 4:  # quantifier E
+            if len(constants) == MAX_CONSTANTS:
+                print('err max')
+            else:
+                rlt['type'] = TYPES[3]
+                constants.append(chr(61 + len(constants)))
+                rlt['arg'] = ['-' + this_theory[2:], this_theory[1], constants[-1]]
         elif fmla_parsed in [1, 6]:
-            pass
+            print(this_theory)
+            # common_literals.append(this_theory)
         elif DEBUG_SAT:
             print('not a formula')
         return rlt
 
     result = 0
     expand_count = 0
+    common_literals = []
     while len(tab) != 0 and expand_count < MAX_EXPAND:
+        if DEBUG_SAT:
+            print("tab: ", tab, "common: ", common_literals)
         # sigma this a theory
         sigma = tab.pop(0)
         if _exp(sigma) and not _c(sigma):
