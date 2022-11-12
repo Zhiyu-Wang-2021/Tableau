@@ -6,7 +6,7 @@ PREDICATES = ["P", "Q", "R", "S"]
 CONNECTIVES = ["^", "v", ">"]
 VAR = ["x", "y", "z", "w"]
 DEBUG_PARSER = False
-DEBUG_SAT = True
+DEBUG_SAT = False
 CONSTANTS = [chr(97 + i) for i in range(MAX_CONSTANTS)]
 
 
@@ -143,9 +143,12 @@ def sat(tab):
             "type": None,
             "arg": None
         }
+        if DEBUG_SAT:
+            print("theory:", this_theory)
+        # this_theory = _reorder_quantifiers(this_theory)
         fmla_parsed = parse(this_theory)
         if DEBUG_SAT:
-            print("theory:", this_theory, "parse result:", fmla_parsed)
+            print("theory reordered:", this_theory, "parse result:", fmla_parsed)
         if fmla_parsed in [2, 7]:
             next_theory = this_theory[1:]
             next_parsed = parse(next_theory)
@@ -281,6 +284,37 @@ def sat(tab):
 
         return rlt
 
+    def _reorder_quantifiers(this_fmla):
+        reordered_quantifiers = ""
+        is_neg = this_fmla[0] == '-'
+        if is_neg:
+            this_fmla = this_fmla[1:]
+        this_parsed = parse(this_fmla)
+        while this_parsed in [3, 4]:
+            if this_parsed == 3:  # Ax
+                if is_neg:  # -Ax
+                    reordered_quantifiers = '-' + this_fmla[:2] + reordered_quantifiers
+                else:  # Ax
+                    reordered_quantifiers += this_fmla[:2]
+            elif this_parsed == 4:
+                if is_neg:  # -Ex
+                    reordered_quantifiers += '-' + this_fmla[:2]
+                else:  # Ex
+                    reordered_quantifiers = this_fmla[:2] + reordered_quantifiers
+            this_fmla = this_fmla[2:]
+            this_parsed = parse(this_fmla)
+        reordered_quantifiers += this_fmla
+        return reordered_quantifiers
+
+    def _reorder_sigma(this_sigma):
+        reordered_sigma = this_sigma.copy()
+        if parse(this_sigma[0]) == 3:
+            for index, this_fmla in enumerate(this_sigma):
+                if parse(this_fmla) == 4:
+                    reordered_sigma[0], reordered_sigma[index] = reordered_sigma[index], reordered_sigma[0]
+        return reordered_sigma
+
+
 
     # ########################################
     #       determine the satisfiability
@@ -295,6 +329,7 @@ def sat(tab):
             print("////////////  TAB  ////////////\n")
         # sigma this a theory
         sigma = tab.pop(0)
+        # sigma = _reorder_sigma(sigma)
         if _exp(sigma) and not _c(sigma):
             if DEBUG_SAT:
                 print(">> fully expanded and no contradiction", sigma)
@@ -342,8 +377,8 @@ def sat(tab):
                     print("!!!!!!!!! Gama !!!!!!!!!!!")
                 # for each char in all formulas in sigma
                 original_fmla = args[2]
-                target = args[1]
-                if _no_free_var(original_fmla, target):
+                this_target = args[1]
+                if _no_free_var(original_fmla, this_target):
                     tab.append([original_fmla[2:]])
                 else:
                     found = False
@@ -351,13 +386,16 @@ def sat(tab):
                         for c in fml:
                             if c in constants:
                                 # arg = [args[0].replace(args[1], c)]
-                                arg = [_replace_in_scope(args[2], target, c)]
+                                arg = [_replace_in_scope(args[0], this_target, c)]
 
                                 if arg not in sigma:
                                     sig = rest_of_sigma.copy() + arg + [original_fmla]
                                     if not _c(sig) and sig not in tab:
                                         if original_fmla not in used_constants_by.keys():
                                             used_constants_by[original_fmla] = [c]
+                                            tab.append(sig)
+                                            found = True
+                                            break
                                         elif c not in used_constants_by[original_fmla]:
                                             used_constants_by[original_fmla].append(c)
                                             tab.append(sig)
