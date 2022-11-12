@@ -6,7 +6,7 @@ PREDICATES = ["P", "Q", "R", "S"]
 CONNECTIVES = ["^", "v", ">"]
 VAR = ["x", "y", "z", "w"]
 DEBUG_PARSER = False
-DEBUG_SAT = True
+DEBUG_SAT = False
 
 constants = []
 
@@ -121,7 +121,7 @@ def sat(tab):
         return True
 
     def _c(this_theory):
-        exist = common_literals.copy()
+        exist = []
         for fml in this_theory:
             if fml[0] == '-':
                 if fml[1:] in exist:
@@ -166,6 +166,8 @@ def sat(tab):
                     rlt['type'] = TYPES[3]
                     constants.append(chr(61 + len(constants)))
                     rlt['arg'] = ['-' + this_theory[2:], this_theory[1], constants[-1]]
+            elif next_parsed in [1, 6] and DEBUG_SAT:
+                print('sai neg 1, 6')
             elif DEBUG_SAT:
                 print('err')
         elif fmla_parsed in [5, 8]:
@@ -191,39 +193,46 @@ def sat(tab):
                 constants.append(chr(61 + len(constants)))
                 rlt['arg'] = ['-' + this_theory[2:], this_theory[1], constants[-1]]
         elif fmla_parsed in [1, 6]:
-            print(this_theory)
-            # common_literals.append(this_theory)
+            print('sai 1, 6')
         elif DEBUG_SAT:
             print('not a formula')
         return rlt
 
     result = 0
     expand_count = 0
-    common_literals = []
     while len(tab) != 0 and expand_count < MAX_EXPAND:
         if DEBUG_SAT:
-            print("tab: ", tab, "common: ", common_literals)
+            print("tab: ", tab)
         # sigma this a theory
         sigma = tab.pop(0)
         if _exp(sigma) and not _c(sigma):
+            if DEBUG_SAT:
+                print(">> break", sigma)
             result = 1
             break
         else:
-            for fmla in sigma:
-                sai = _sai(fmla)
-                args = sai['arg']
-                if sai['type'] == TYPES[0]:  # alpha
-                    if not _c(args) and args not in tab:
-                        tab.append(args)
-                elif sai['type'] == TYPES[1]:  # beta
-                    for formula in args:
-                        arg = [formula]
-                        if not _c(arg) and arg not in tab:
-                            tab.append(arg)
-                elif sai['type'] == TYPES[2]:  # delta
-                    pass
-                elif sai['type'] == TYPES[3]:  # gama
-                    pass
+            if DEBUG_SAT:
+                print(">> sigma", sigma)
+            # only process the first element of sigma
+            # eventually everyone would be processed as it rotates while appending
+            fmla = sigma[0]
+            rest_of_sigma = sigma[1:]
+            sai = _sai(fmla)
+            args = sai['arg']
+            if DEBUG_SAT:
+                print(">> sai", sai)
+            if sai['type'] == TYPES[0]:  # alpha
+                if not _c(args) and args not in tab:
+                    tab.append(rest_of_sigma + args)
+            elif sai['type'] == TYPES[1]:  # beta
+                for formula in args:
+                    arg = [formula]
+                    if not _c(arg) and arg not in tab:
+                        tab.append(rest_of_sigma + arg)
+            elif sai['type'] == TYPES[2]:  # delta
+                pass
+            elif sai['type'] == TYPES[3]:  # gama
+                pass
         expand_count += 0
     if DEBUG_SAT and expand_count == MAX_EXPAND:
         print("reached maximum expansion")
