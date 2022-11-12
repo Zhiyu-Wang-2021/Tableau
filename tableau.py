@@ -6,7 +6,7 @@ PREDICATES = ["P", "Q", "R", "S"]
 CONNECTIVES = ["^", "v", ">"]
 VAR = ["x", "y", "z", "w"]
 DEBUG_PARSER = False
-DEBUG_SAT = False
+DEBUG_SAT = True
 
 constants = []
 
@@ -57,7 +57,7 @@ def parse(fmla):
             if fmla[1] == "(" and fmla[-1] == ")":
                 inner_fmlas = fmla[2:-1].split(',')
                 for inner_fmla in inner_fmlas:
-                    if inner_fmla not in VAR and parse(inner_fmla) == 0:
+                    if (inner_fmla not in VAR and inner_fmla not in constants) and parse(inner_fmla) == 0:
                         result = 0
                         break
     if DEBUG_PARSER:
@@ -138,6 +138,8 @@ def sat(tab):
             "arg": None
         }
         fmla_parsed = parse(this_theory)
+        if DEBUG_SAT:
+            print("theory:", this_theory, "parse result:", fmla_parsed)
         if fmla_parsed in [2, 7]:
             next_theory = this_theory[1:]
             next_parsed = parse(next_theory)
@@ -157,15 +159,17 @@ def sat(tab):
                     rlt['arg'] = [lhs(next_theory), '-' + rhs(next_theory)]
                 else:
                     print('err 2,7')
-            elif next_parsed == 3:  # quantifier A
+            elif next_parsed == 3:  # quantifier -A, y
                 rlt['type'] = TYPES[4]
-            elif next_parsed == 4:  # quantifier E
+            elif next_parsed == 4:  # quantifier -E, d
                 if len(constants) == MAX_CONSTANTS:
                     print('err max')
                 else:
                     rlt['type'] = TYPES[3]
-                    constants.append(chr(61 + len(constants)))
-                    rlt['arg'] = ['-' + this_theory[2:], this_theory[1], constants[-1]]
+                    constants.append(chr(97 + len(constants)))
+                    if DEBUG_SAT:
+                        print('constants:', constants, 'len:', len(constants))
+                    rlt['arg'] = ['-' + next_theory[2:], next_theory[1], constants[-1]]
             elif next_parsed in [1, 6] and DEBUG_SAT:
                 print('sai neg 1, 6')
             elif DEBUG_SAT:
@@ -183,19 +187,21 @@ def sat(tab):
                 rlt['arg'] = ['-' + lhs(this_theory), rhs(this_theory)]
             elif DEBUG_SAT:
                 print('err 5,8')
-        elif fmla_parsed == 3:  # quantifier A
+        elif fmla_parsed == 3:  # quantifier A, y
             rlt['type'] = TYPES[4]
-        elif fmla_parsed == 4:  # quantifier E
+        elif fmla_parsed == 4:  # quantifier E, d
             if len(constants) == MAX_CONSTANTS:
                 print('err max')
             else:
                 rlt['type'] = TYPES[3]
-                constants.append(chr(61 + len(constants)))
-                rlt['arg'] = ['-' + this_theory[2:], this_theory[1], constants[-1]]
-        elif fmla_parsed in [1, 6]:
+                constants.append(chr(97 + len(constants)))
+                if DEBUG_SAT:
+                    print('constants:', constants, 'len:', len(constants))
+                rlt['arg'] = [this_theory[2:], this_theory[1], constants[-1]]
+        elif fmla_parsed in [1, 6] and DEBUG_SAT:
             print('sai 1, 6')
         elif DEBUG_SAT:
-            print('not a formula')
+            print('not a formula or other err')
         return rlt
 
     result = 0
@@ -226,13 +232,15 @@ def sat(tab):
                     tab.append(rest_of_sigma + args)
             elif sai['type'] == TYPES[1]:  # beta
                 for formula in args:
-                    arg = [formula]
+                    arg = [formula]  # args should always be a list
                     if not _c(arg) and arg not in tab:
                         tab.append(rest_of_sigma + arg)
             elif sai['type'] == TYPES[2]:  # delta
                 pass
             elif sai['type'] == TYPES[3]:  # gama
-                pass
+                arg = [args[0].replace(args[1], args[2])]
+                if not _c(arg) and arg not in tab:
+                    tab.append(rest_of_sigma + arg)
         expand_count += 0
     if DEBUG_SAT and expand_count == MAX_EXPAND:
         print("reached maximum expansion")

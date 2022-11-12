@@ -1,13 +1,2 @@
 PARSE SAT
--(p>(q>p))
-(-(p>q)^q)
-(---pv(q^-q))
-(p>p)
--(p>p)
-((pvq)^
-(p-q)
-((pvq)^(-pv-q))
-(q^-(pv-p))
-p
-((pvq)^((p>-p)^(-p>p)))
------------q
+ExEy(Q(x,x)^Q(y,y))
