@@ -6,7 +6,7 @@ PREDICATES = ["P", "Q", "R", "S"]
 CONNECTIVES = ["^", "v", ">"]
 VAR = ["x", "y", "z", "w"]
 DEBUG_PARSER = False
-DEBUG_SAT = True
+DEBUG_SAT = False
 CONSTANTS = [chr(97 + i) for i in range(MAX_CONSTANTS)]
 
 
@@ -221,10 +221,10 @@ def sat(tab):
         is_inner = False
         is_quantifier = False
         num_left = 0
-        rlt = this_fmla[:2]
-        for i in range(len(this_fmla) - 2):
+        rlt = ""
+        for i in range(len(this_fmla)):
 
-            this_char = this_fmla[i + 2]
+            this_char = this_fmla[i]
 
             if not is_quantifier:
                 if not is_inner:
@@ -247,40 +247,6 @@ def sat(tab):
 
             rlt += this_char
         return rlt
-
-    def _no_free_var(this_fmla, target):
-        if DEBUG_SAT:
-            print(this_fmla, target)
-        is_inner = False
-        is_quantifier = False
-        num_left = 0
-        rlt = True
-        for i in range(len(this_fmla) - 2):
-
-            this_char = this_fmla[i + 2]
-
-            if not is_quantifier:
-                if not is_inner:
-                    if this_char in QUANTIFIERS:
-                        is_inner = True
-                        is_quantifier = True
-                    elif this_char == target:
-                        rlt = False
-                        break
-                else:
-                    if this_char == '(':
-                        num_left += 1
-                    elif this_char == ')':
-                        num_left -= 1
-                    elif num_left == 0 and this_char in CONNECTIVES:
-                        is_inner = False
-            else:
-                if this_char != target:
-                    is_inner = False
-                is_quantifier = False
-
-        return rlt
-
 
     # ########################################
     #       determine the satisfiability
@@ -339,41 +305,36 @@ def sat(tab):
                     tab.append(sig)
             elif sai['type'] == TYPES[3]:  # gama
                 if DEBUG_SAT:
-                    print("!!!!!!!!! Gama !!!!!!!!!!!")
+                    print("!!!!!!!!!!!!!!!!!!!!")
                 # for each char in all formulas in sigma
-                original_fmla = args[2]
-                target = args[1]
-                if _no_free_var(original_fmla, target):
-                    tab.append([original_fmla[2:]])
+                found = False
+                for fml in sigma:
+                    for c in fml:
+                        if c in constants:
+                            # arg = [args[0].replace(args[1], c)]
+                            arg = [_replace_in_scope(args[0], args[1], c)]
+                            original_fmla = args[2]
+                            if arg not in sigma:
+                                sig = rest_of_sigma.copy() + arg + [original_fmla]
+                                if not _c(sig) and sig not in tab:
+                                    if original_fmla not in used_constants_by.keys():
+                                        used_constants_by[original_fmla] = [c]
+                                    elif c not in used_constants_by[original_fmla]:
+                                        used_constants_by[original_fmla].append(c)
+                                        tab.append(sig)
+                                        found = True
+                                        break
+                    if found:
+                        break
+                if not found:
+                    if DEBUG_SAT:
+                        print("discard Ax as all case tried")
+                    tab.append(rest_of_sigma.copy())
                 else:
-                    found = False
-                    for fml in sigma:
-                        for c in fml:
-                            if c in constants:
-                                # arg = [args[0].replace(args[1], c)]
-                                arg = [_replace_in_scope(args[2], target, c)]
-
-                                if arg not in sigma:
-                                    sig = rest_of_sigma.copy() + arg + [original_fmla]
-                                    if not _c(sig) and sig not in tab:
-                                        if original_fmla not in used_constants_by.keys():
-                                            used_constants_by[original_fmla] = [c]
-                                        elif c not in used_constants_by[original_fmla]:
-                                            used_constants_by[original_fmla].append(c)
-                                            tab.append(sig)
-                                            found = True
-                                            break
-                        if found:
-                            break
-                    if not found:
-                        if DEBUG_SAT:
-                            print("discard Ax as all case tried")
-                        tab.append(rest_of_sigma.copy())
-                    else:
-                        if DEBUG_SAT:
-                            print("----------USED CONSTANT------------")
-                            print(used_constants_by)
-                            print("----------USED CONSTANT------------")
+                    if DEBUG_SAT:
+                        print("----------USED CONSTANT------------")
+                        print(used_constants_by)
+                        print("----------USED CONSTANT------------")
             elif sai['type'] == TYPES[4]:  # 1, 6
                 tab.append(rest_of_sigma + [args[0]])
     if expand_count >= MAX_EXPAND:
@@ -391,10 +352,8 @@ def sat(tab):
     return result
 
 
-# ########################################
-# comment the following before submitting
-# ########################################
-f = open('input_no_fol.txt')
+# DO NOT MODIFY THE CODE BELOW
+f = open('input.txt')
 
 parseOutputs = ['not a formula',
                 'an atom',
@@ -419,8 +378,6 @@ if 'SAT' in firstline:
     SAT = True
 
 for line in f:
-    if DEBUG_PARSER or DEBUG_SAT:
-        print("vvvvvvvvvvvvvvvvvvvvvvvvvv")
     if line[-1] == '\n':
         line = line[:-1]
     parsed = parse(line)
@@ -431,8 +388,7 @@ for line in f:
             output += " Its left hand side is %s, its connective is %s, and its right hand side is %s." % (
                 lhs(line), con(line), rhs(line))
         print(output)
-    if DEBUG_PARSER:
-        print("--------------------------")
+
     if SAT:
         if parsed:
             tableau = [theory(line)]
@@ -440,53 +396,3 @@ for line in f:
         else:
             print('%s is not a formula.' % line)
 
-    if DEBUG_PARSER or DEBUG_SAT:
-        print("^^^^^^^^^^^^^^^^^^^^^^^^^^")
-
-# ########################################
-#           original skeleton
-# ########################################
-# DO NOT MODIFY THE CODE BELOW
-# f = open('input.txt')
-#
-# parseOutputs = ['not a formula',
-#                 'an atom',
-#                 'a negation of a first order logic formula',
-#                 'a universally quantified formula',
-#                 'an existentially quantified formula',
-#                 'a binary connective first order formula',
-#                 'a proposition',
-#                 'a negation of a propositional formula',
-#                 'a binary connective propositional formula']
-#
-# satOutput = ['is not satisfiable', 'is satisfiable', 'may or may not be satisfiable']
-#
-# firstline = f.readline()
-#
-# PARSE = False
-# if 'PARSE' in firstline:
-#     PARSE = True
-#
-# SAT = False
-# if 'SAT' in firstline:
-#     SAT = True
-#
-# for line in f:
-#     if line[-1] == '\n':
-#         line = line[:-1]
-#     parsed = parse(line)
-#
-#     if PARSE:
-#         output = "%s is %s." % (line, parseOutputs[parsed])
-#         if parsed in [5, 8]:
-#             output += " Its left hand side is %s, its connective is %s, and its right hand side is %s." % (
-#                 lhs(line), con(line), rhs(line))
-#         print(output)
-#
-#     if SAT:
-#         if parsed:
-#             tableau = [theory(line)]
-#             print('%s %s.' % (line, satOutput[sat(tableau)]))
-#         else:
-#             print('%s is not a formula.' % line)
-#
