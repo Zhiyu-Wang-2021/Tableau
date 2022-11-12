@@ -6,7 +6,7 @@ PREDICATES = ["P", "Q", "R", "S"]
 CONNECTIVES = ["^", "v", ">"]
 VAR = ["x", "y", "z", "w"]
 DEBUG_PARSER = False
-DEBUG_SAT = True
+DEBUG_SAT = False
 
 constants = []
 
@@ -109,8 +109,9 @@ def theory(fmla):  # initialise a theory with a single formula in it
 # check for satisfiability
 # Tableau tab is [theory(fmla)]
 def sat(tab):
-    TYPES = ['a', 'b', 'd', 'y']
+    TYPES = ['a', 'b', 'd', 'y', 'p']
 
+    # determine whether a theory is fully expanded
     def _exp(this_theory):
         for fml in this_theory:
             if parse(fml) in [2, 7]:
@@ -120,6 +121,7 @@ def sat(tab):
                 return False
         return True
 
+    # determine whether a theory contradicts itself
     def _c(this_theory):
         exist = []
         for fml in this_theory:
@@ -132,6 +134,8 @@ def sat(tab):
             exist.append(fml)
         return False
 
+    # determine which type of action to take
+    # and the arguments needed
     def _sai(this_theory):
         rlt = {
             "type": None,
@@ -159,13 +163,14 @@ def sat(tab):
                     rlt['arg'] = [lhs(next_theory), '-' + rhs(next_theory)]
                 else:
                     print('err 2,7')
-            elif next_parsed == 3:  # quantifier -A, y
-                rlt['type'] = TYPES[4]
-            elif next_parsed == 4:  # quantifier -E, d
+            elif next_parsed == 4:  # quantifier -E, y
+                rlt['type'] = TYPES[3]
+                rlt['arg'] = ['-' + next_theory[2:], next_theory[1], this_theory]
+            elif next_parsed == 3:  # quantifier -A, d
                 if len(constants) == MAX_CONSTANTS:
                     print('err max')
                 else:
-                    rlt['type'] = TYPES[3]
+                    rlt['type'] = TYPES[2]
                     constants.append(chr(97 + len(constants)))
                     if DEBUG_SAT:
                         print('constants:', constants, 'len:', len(constants))
@@ -188,21 +193,28 @@ def sat(tab):
             elif DEBUG_SAT:
                 print('err 5,8')
         elif fmla_parsed == 3:  # quantifier A, y
-            rlt['type'] = TYPES[4]
+            rlt['type'] = TYPES[3]
+            rlt['arg'] = [this_theory[2:], this_theory[1], this_theory]
         elif fmla_parsed == 4:  # quantifier E, d
             if len(constants) == MAX_CONSTANTS:
                 print('err max')
             else:
-                rlt['type'] = TYPES[3]
+                rlt['type'] = TYPES[2]
                 constants.append(chr(97 + len(constants)))
                 if DEBUG_SAT:
                     print('constants:', constants, 'len:', len(constants))
                 rlt['arg'] = [this_theory[2:], this_theory[1], constants[-1]]
         elif fmla_parsed in [1, 6] and DEBUG_SAT:
             print('sai 1, 6')
+            rlt['type'] = TYPES[4]
+            rlt['arg'] = [this_theory]
         elif DEBUG_SAT:
             print('not a formula or other err')
         return rlt
+
+    # ########################################
+    #       determine the satisfiability
+    # ########################################
 
     result = 0
     expand_count = 0
@@ -213,7 +225,7 @@ def sat(tab):
         sigma = tab.pop(0)
         if _exp(sigma) and not _c(sigma):
             if DEBUG_SAT:
-                print(">> break", sigma)
+                print(">> fully expanded and no contradiction", sigma)
             result = 1
             break
         else:
@@ -228,19 +240,45 @@ def sat(tab):
             if DEBUG_SAT:
                 print(">> sai", sai)
             if sai['type'] == TYPES[0]:  # alpha
-                if not _c(args) and args not in tab:
-                    tab.append(rest_of_sigma + args)
+                sig = rest_of_sigma.copy()
+                for formula in args:
+                    if formula not in sig:
+                        sig += [formula]
+                if not _c(sig) and sig not in tab:
+                    tab.append(sig)
             elif sai['type'] == TYPES[1]:  # beta
                 for formula in args:
-                    arg = [formula]  # args should always be a list
-                    if not _c(arg) and arg not in tab:
-                        tab.append(rest_of_sigma + arg)
+                    sig = rest_of_sigma.copy()
+                    if formula not in sig:
+                        sig += [formula]
+                    if not _c(sig) and sig not in tab:
+                        tab.append(sig)
             elif sai['type'] == TYPES[2]:  # delta
-                pass
-            elif sai['type'] == TYPES[3]:  # gama
                 arg = [args[0].replace(args[1], args[2])]
-                if not _c(arg) and arg not in tab:
-                    tab.append(rest_of_sigma + arg)
+                sig = rest_of_sigma.copy()
+                if arg not in sig:
+                    sig += arg
+                if not _c(sig) and sig not in tab:
+                    tab.append(sig)
+            elif sai['type'] == TYPES[3]:  # gama
+                if DEBUG_SAT:
+                    print("!!!!!!!!!!!!!!!!!!!!")
+                # for each char in all formulas in sigma
+                found = False
+                for fml in sigma:
+                    for c in fml:
+                        if c in constants:
+                            arg = [args[0].replace(args[1], c)]
+                            if arg not in sigma:
+                                sig = rest_of_sigma.copy() + arg + [args[2]]
+                                if not _c(sig) and sig not in tab:
+                                    tab.append(sig)
+                                    found = True
+                                    break
+                    if found:
+                        break
+            elif sai['type'] == TYPES[4]:  # 1, 6
+                tab.append(rest_of_sigma + [args[0]])
         expand_count += 0
     if DEBUG_SAT and expand_count == MAX_EXPAND:
         print("reached maximum expansion")
@@ -279,7 +317,7 @@ if 'SAT' in firstline:
     SAT = True
 
 for line in f:
-    if DEBUG_PARSER:
+    if DEBUG_PARSER or DEBUG_SAT:
         print("vvvvvvvvvvvvvvvvvvvvvvvvvv")
     if line[-1] == '\n':
         line = line[:-1]
@@ -300,7 +338,7 @@ for line in f:
         else:
             print('%s is not a formula.' % line)
 
-    if DEBUG_PARSER:
+    if DEBUG_PARSER or DEBUG_SAT:
         print("^^^^^^^^^^^^^^^^^^^^^^^^^^")
 
 # Original skeleton
