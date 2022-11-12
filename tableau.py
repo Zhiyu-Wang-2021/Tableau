@@ -1,5 +1,5 @@
 MAX_CONSTANTS = 10
-MAX_EXPAND = 1000
+MAX_EXPAND = 100
 QUANTIFIERS = ["A", "E"]
 PROPOSITIONS = ["p", "q", "r", "s"]
 PREDICATES = ["P", "Q", "R", "S"]
@@ -219,6 +219,7 @@ def sat(tab):
     result = 0
     expand_count = 0
     while len(tab) != 0 and expand_count < MAX_EXPAND:
+        expand_count += 1
         if DEBUG_SAT:
             print("tab: ", tab)
         # sigma this a theory
@@ -279,9 +280,10 @@ def sat(tab):
                         break
             elif sai['type'] == TYPES[4]:  # 1, 6
                 tab.append(rest_of_sigma + [args[0]])
-        expand_count += 0
-    if DEBUG_SAT and expand_count == MAX_EXPAND:
-        print("reached maximum expansion")
+    if expand_count >= MAX_EXPAND:
+        result = 2
+        if DEBUG_SAT:
+            print("reached maximum expansion")
 
     # output 0 if not satisfiable,
     # output 1 if satisfiable,
