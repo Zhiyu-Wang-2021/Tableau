@@ -502,10 +502,8 @@ def sat(tab):
     return result
 
 
-# ########################################
-# comment the following before submitting
-# ########################################
-f = open('input_no_fol.txt')
+# DO NOT MODIFY THE CODE BELOW
+f = open('input.txt')
 
 parseOutputs = ['not a formula',
                 'an atom',
@@ -530,8 +528,6 @@ if 'SAT' in firstline:
     SAT = True
 
 for line in f:
-    if DEBUG_PARSER or DEBUG_SAT or DEBUG_CONSTS:
-        print("vvvvvvvvvvvvvvvvvvvvvvvvvv")
     if line[-1] == '\n':
         line = line[:-1]
     parsed = parse(line)
@@ -542,10 +538,7 @@ for line in f:
             output += " Its left hand side is %s, its connective is %s, and its right hand side is %s." % (
                 lhs(line), con(line), rhs(line))
         print(output)
-    if DEBUG_CONSTS:
-        print("existing consts:", global_consts)
-    if DEBUG_PARSER:
-        print("--------------------------")
+
     if SAT:
         if parsed:
             tableau = [theory(line)]
@@ -553,5 +546,3 @@ for line in f:
         else:
             print('%s is not a formula.' % line)
 
-    if DEBUG_PARSER or DEBUG_SAT or DEBUG_CONSTS:
-        print("^^^^^^^^^^^^^^^^^^^^^^^^^^")
