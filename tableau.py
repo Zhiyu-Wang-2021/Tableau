@@ -354,7 +354,7 @@ def sat(tab):
 
     def _reorder_sigma(this_sigma):
         reordered_sigma = this_sigma.copy()
-        if parse(this_sigma[0]) == 3:
+        if len(this_sigma) > 1 and parse(this_sigma[0]) == 3:
             for index, this_fmla in enumerate(this_sigma):
                 if this_fmla[:2] == '-A' or this_fmla[0] == 'E':
                     reordered_sigma[0], reordered_sigma[index] = reordered_sigma[index], reordered_sigma[0]
@@ -428,10 +428,15 @@ def sat(tab):
                 original_fmla = args[2]
                 this_target = args[1]
                 if _no_free_var(original_fmla, this_target):
+                    if DEBUG_SAT:
+                        print("no free occurrence of", this_target)
                     tab.append([original_fmla[2:]])
                 else:
+                    if DEBUG_SAT:
+                        print("found occurrence of", this_target)
                     found = False
                     for fml in sigma:
+                        # try to find a constant from a existing formula in sigma
                         for c in fml:
                             if c in constants:
                                 # arg = [args[0].replace(args[1], c)]
@@ -457,13 +462,21 @@ def sat(tab):
                                         found = True
                                         result = 0
                                         break
-
                         if found:
                             break
+                    # fail to find any existing constant to replace
                     if not found:
                         if DEBUG_SAT:
+                            print("did not find a proper replacement")
                             print("discard Ax as all case tried")
-                        tab.append(rest_of_sigma.copy())
+                            print("add a final case to test if it contradicts itself")
+
+                        # should try to fill in with a random constant
+                        # just for testing if the _c(theory) regardless of
+                        # any constant assignments
+                        _add_const()
+                        arg = [_replace_in_scope(args[0], this_target, constants[-1])]
+                        tab.append(arg + rest_of_sigma.copy())
                     else:
                         if DEBUG_SAT:
                             print("----------USED CONSTANT------------")

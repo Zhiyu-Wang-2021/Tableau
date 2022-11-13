@@ -132,7 +132,7 @@ def _replace_in_scope(this_fmla, target, sub):
 
 def _no_free_var(this_fmla, target):
     if DEBUG_SAT:
-        print(this_fmla, target)
+        print("searching for free var... ", this_fmla, target)
     is_inner = False
     is_quantifier = False
     num_left = 0
@@ -235,5 +235,8 @@ def _reorder_sigma(this_sigma):
 # result = _reorder_quantifiers('----Ax----Ey----P(x,y)')
 # print(result, result == 'EyAxP(x,y)')
 
-ALLOWED_CONSTS = [chr(97 + i) for i in range(15)] + [chr(97 + i) for i in range(19, 22)]
-print(ALLOWED_CONSTS)
+# ALLOWED_CONSTS = [chr(97 + i) for i in range(15)] + [chr(97 + i) for i in range(19, 22)]
+# print(ALLOWED_CONSTS)
+
+
+print(_no_free_var('Ax(-P(x,x)>P(x,x))', 'x'))
