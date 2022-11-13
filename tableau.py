@@ -183,7 +183,7 @@ def sat(tab):
             elif next_parsed == 3:  # quantifier -A, d
                 if len(constants) == MAX_CONSTANTS:
                     if DEBUG_SAT:
-                        print('err max')
+                        print('!!!!!!!!! reach max constant !!!!!!!!')
                 else:
                     rlt['type'] = TYPES[2]
                     constants.append(chr(97 + len(constants)))
@@ -216,7 +216,7 @@ def sat(tab):
         elif fmla_parsed == 4:  # quantifier E, d
             if len(constants) == MAX_CONSTANTS:
                 if DEBUG_SAT:
-                    print('err max')
+                    print('!!!!!!!!! reach max constant !!!!!!!!')
             else:
                 rlt['type'] = TYPES[2]
                 constants.append(chr(97 + len(constants)))
@@ -363,6 +363,11 @@ def sat(tab):
             if DEBUG_SAT:
                 print(">> fully expanded and no contradiction", sigma)
             result = 1
+            break
+        elif len(constants) >= MAX_CONSTANTS:
+            if DEBUG_SAT:
+                print(">> fully tested with max amount of constants")
+            result = 2
             break
         else:
             if DEBUG_SAT:
