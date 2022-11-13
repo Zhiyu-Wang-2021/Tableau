@@ -164,29 +164,63 @@ def _no_free_var(this_fmla, target):
     return rlt
 
 
+def _clean_double_neg(this_fmla):
+    rlt = []
+    for c in this_fmla:
+        if c == '-' and len(rlt) > 0 and rlt[-1] == '-':
+            rlt.pop()
+        else:
+            rlt.append(c)
+    return ''.join(rlt)
+
+
 def _reorder_quantifiers(this_fmla):
-    reordered_quantifiers = ""
-    is_neg = this_fmla[0] == '-'
-    if is_neg:
-        this_fmla = this_fmla[1:]
-    parsed = parse(this_fmla)
-    while parsed in [3, 4]:
-        if parsed == 3:  # Ax
-            if is_neg:  # -Ax
-                reordered_quantifiers = '-' + this_fmla[:2] + reordered_quantifiers
-            else:  # Ax
-                reordered_quantifiers += this_fmla[:2]
-        elif parsed == 4:
-            if is_neg:  # -Ex
-                reordered_quantifiers += '-' + this_fmla[:2]
-            else:  # Ex
-                reordered_quantifiers = this_fmla[:2] + reordered_quantifiers
-        this_fmla = this_fmla[2:]
-        parsed = parse(this_fmla)
-    reordered_quantifiers += this_fmla
-    return reordered_quantifiers
+    this_fmla = _clean_double_neg(this_fmla)
+    if parse(this_fmla) < 6:
+        reordered_quantifiers = ""
+        this_parsed = parse(this_fmla)
+        while this_parsed in [3, 4, 2]:
+            is_neg = this_parsed == 2
+            if is_neg:
+                this_fmla = this_fmla[1:]
+                this_parsed = parse(this_fmla)
+            if this_parsed in [3, 4]:
+                if this_parsed == 3:  # Ax
+                    if is_neg:  # -Ax
+                        reordered_quantifiers = '-' + this_fmla[:2] + reordered_quantifiers
+                    else:  # Ax
+                        reordered_quantifiers += this_fmla[:2]
+                elif this_parsed == 4:
+                    if is_neg:  # -Ex
+                        reordered_quantifiers += '-' + this_fmla[:2]
+                    else:  # Ex
+                        reordered_quantifiers = this_fmla[:2] + reordered_quantifiers
+                this_fmla = this_fmla[2:]
+                this_parsed = parse(this_fmla)
+            elif this_parsed in [1, 5] and is_neg:
+                reordered_quantifiers += "-"
+        reordered_quantifiers += this_fmla
+        return reordered_quantifiers
+    else:
+        return this_fmla
 
 
 # result = _no_free_var('Ax(P(a,a)^Ex-P(a,x))', 'x')
-result = _reorder_quantifiers('(AxEyP(x,y)^EzQ(z,z))')
-print(result)
+result = _reorder_quantifiers('Ax-Ey-Az-EzAyExP(x,y)')
+print(result, result == 'Ex-AzAx-Ey-EzAyP(x,y)')
+result = _reorder_quantifiers('-P(x,y)')
+print(result, result == '-P(x,y)')
+result = _reorder_quantifiers('-(P(x,y)^Ax-Ey-Az-EzAyExP(x,y))')
+print(result, result == '-(P(x,y)^Ax-Ey-Az-EzAyExP(x,y))')
+result = _reorder_quantifiers('Ax-Ey-Az-EzAyEx(P(x,y)>P(y,x))')
+print(result, result == 'Ex-AzAx-Ey-EzAy(P(x,y)>P(y,x))')
+result = _reorder_quantifiers('-Ax-Ey-Az-EzAyEx(P(x,y)>P(y,x))')
+print(result, result == 'Ex-Az-Ax-Ey-EzAy(P(x,y)>P(y,x))')
+result = _reorder_quantifiers('-Ax-Ey-Az-EzAyExP(x,y)')
+print(result, result == 'Ex-Az-Ax-Ey-EzAyP(x,y)')
+result = _reorder_quantifiers('-Ax-Ey-P(x,y)')
+print(result, result == '-Ax-Ey-P(x,y)')
+result = _reorder_quantifiers('-----------q')
+print(result, result == '-Ax-Ey-P(x,y)')
+result = _reorder_quantifiers('----Ax----Ey----P(x,y)')
+print(result, result == 'EyAxP(x,y)')

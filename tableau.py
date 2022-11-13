@@ -145,7 +145,7 @@ def sat(tab):
         }
         if DEBUG_SAT:
             print("theory:", this_theory)
-        # this_theory = _reorder_quantifiers(this_theory)
+        this_theory = _reorder_quantifiers(this_theory)
         fmla_parsed = parse(this_theory)
         if DEBUG_SAT:
             print("theory reordered:", this_theory, "parse result:", fmla_parsed)
@@ -180,8 +180,11 @@ def sat(tab):
                     if DEBUG_SAT:
                         print('constants:', constants, 'len:', len(constants))
                     rlt['arg'] = ['-' + next_theory[2:], next_theory[1], constants[-1]]
-            elif next_parsed in [1, 6] and DEBUG_SAT:
-                print('sai neg 1, 6')
+            elif next_parsed in [1, 6]:
+                if DEBUG_SAT:
+                    print('sai 1, 6')
+                rlt['type'] = TYPES[4]
+                rlt['arg'] = [this_theory]
             elif DEBUG_SAT:
                 print('err')
         elif fmla_parsed in [5, 8]:
@@ -284,27 +287,44 @@ def sat(tab):
 
         return rlt
 
+    def _clean_double_neg(this_fmla):
+        rlt = []
+        for c in this_fmla:
+            if c == '-' and len(rlt) > 0 and rlt[-1] == '-':
+                rlt.pop()
+            else:
+                rlt.append(c)
+        return ''.join(rlt)
+
     def _reorder_quantifiers(this_fmla):
-        reordered_quantifiers = ""
-        is_neg = this_fmla[0] == '-'
-        if is_neg:
-            this_fmla = this_fmla[1:]
-        this_parsed = parse(this_fmla)
-        while this_parsed in [3, 4]:
-            if this_parsed == 3:  # Ax
-                if is_neg:  # -Ax
-                    reordered_quantifiers = '-' + this_fmla[:2] + reordered_quantifiers
-                else:  # Ax
-                    reordered_quantifiers += this_fmla[:2]
-            elif this_parsed == 4:
-                if is_neg:  # -Ex
-                    reordered_quantifiers += '-' + this_fmla[:2]
-                else:  # Ex
-                    reordered_quantifiers = this_fmla[:2] + reordered_quantifiers
-            this_fmla = this_fmla[2:]
+        this_fmla = _clean_double_neg(this_fmla)
+        if parse(this_fmla) < 6:
+            reordered_quantifiers = ""
             this_parsed = parse(this_fmla)
-        reordered_quantifiers += this_fmla
-        return reordered_quantifiers
+            while this_parsed in [3, 4, 2]:
+                is_neg = this_parsed == 2
+                if is_neg:
+                    this_fmla = this_fmla[1:]
+                    this_parsed = parse(this_fmla)
+                if this_parsed in [3, 4]:
+                    if this_parsed == 3:  # Ax
+                        if is_neg:  # -Ax
+                            reordered_quantifiers = '-' + this_fmla[:2] + reordered_quantifiers
+                        else:  # Ax
+                            reordered_quantifiers += this_fmla[:2]
+                    elif this_parsed == 4:
+                        if is_neg:  # -Ex
+                            reordered_quantifiers += '-' + this_fmla[:2]
+                        else:  # Ex
+                            reordered_quantifiers = this_fmla[:2] + reordered_quantifiers
+                    this_fmla = this_fmla[2:]
+                    this_parsed = parse(this_fmla)
+                elif this_parsed in [1, 5] and is_neg:
+                    reordered_quantifiers += "-"
+            reordered_quantifiers += this_fmla
+            return reordered_quantifiers
+        else:
+            return this_fmla
 
     def _reorder_sigma(this_sigma):
         reordered_sigma = this_sigma.copy()
@@ -329,7 +349,7 @@ def sat(tab):
             print("////////////  TAB  ////////////\n")
         # sigma this a theory
         sigma = tab.pop(0)
-        # sigma = _reorder_sigma(sigma)
+        sigma = _reorder_sigma(sigma)
         if _exp(sigma) and not _c(sigma):
             if DEBUG_SAT:
                 print(">> fully expanded and no contradiction", sigma)
