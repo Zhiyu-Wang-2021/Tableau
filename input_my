@@ -1,3 +1,3 @@
 PARSE SAT
-
--(ExAyPxy>AxEyPyx)
+(AxAy(P(x,y)>-P(y,x))^-Ax-P(x,x))
+-(ExAyP(x,y)>AxEyP(y,x))

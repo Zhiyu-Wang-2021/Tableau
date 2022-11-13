@@ -100,7 +100,8 @@ def con(fmla):
 
 # Return the RHS symbol of a binary connective formula
 def rhs(fmla):
-    return fmla[get_con_idx(fmla) + 1:-1]
+    con_idx = get_con_idx(fmla)
+    return fmla[con_idx + 1:-1]
 
 
 # You may choose to represent a theory as a set or a list
@@ -340,7 +341,7 @@ def sat(tab):
         reordered_sigma = this_sigma.copy()
         if parse(this_sigma[0], constants) == 3:
             for index, this_fmla in enumerate(this_sigma):
-                if parse(this_fmla, constants) == 4:
+                if this_fmla[:2] == '-A' or this_fmla[0] == 'E':
                     reordered_sigma[0], reordered_sigma[index] = reordered_sigma[index], reordered_sigma[0]
         return reordered_sigma
 

@@ -205,22 +205,32 @@ def _reorder_quantifiers(this_fmla):
         return this_fmla
 
 
+def _reorder_sigma(this_sigma):
+    reordered_sigma = this_sigma.copy()
+    if parse(this_sigma[0]) == 3:
+        for index, this_fmla in enumerate(this_sigma):
+            if this_fmla[:2] == '-A' or this_fmla[0] == 'E':
+                reordered_sigma[0], reordered_sigma[index] = reordered_sigma[index], reordered_sigma[0]
+    return reordered_sigma
+
+
+print(_reorder_sigma(['AxAy(P(x,y)>-P(y,x))', '-Ax-P(x,x)']))
 # result = _no_free_var('Ax(P(a,a)^Ex-P(a,x))', 'x')
-result = _reorder_quantifiers('Ax-Ey-Az-EzAyExP(x,y)')
-print(result, result == 'Ex-AzAx-Ey-EzAyP(x,y)')
-result = _reorder_quantifiers('-P(x,y)')
-print(result, result == '-P(x,y)')
-result = _reorder_quantifiers('-(P(x,y)^Ax-Ey-Az-EzAyExP(x,y))')
-print(result, result == '-(P(x,y)^Ax-Ey-Az-EzAyExP(x,y))')
-result = _reorder_quantifiers('Ax-Ey-Az-EzAyEx(P(x,y)>P(y,x))')
-print(result, result == 'Ex-AzAx-Ey-EzAy(P(x,y)>P(y,x))')
-result = _reorder_quantifiers('-Ax-Ey-Az-EzAyEx(P(x,y)>P(y,x))')
-print(result, result == 'Ex-Az-Ax-Ey-EzAy(P(x,y)>P(y,x))')
-result = _reorder_quantifiers('-Ax-Ey-Az-EzAyExP(x,y)')
-print(result, result == 'Ex-Az-Ax-Ey-EzAyP(x,y)')
-result = _reorder_quantifiers('-Ax-Ey-P(x,y)')
-print(result, result == '-Ax-Ey-P(x,y)')
-result = _reorder_quantifiers('-----------q')
-print(result, result == '-Ax-Ey-P(x,y)')
-result = _reorder_quantifiers('----Ax----Ey----P(x,y)')
-print(result, result == 'EyAxP(x,y)')
+# result = _reorder_quantifiers('Ax-Ey-Az-EzAyExP(x,y)')
+# print(result, result == 'Ex-AzAx-Ey-EzAyP(x,y)')
+# result = _reorder_quantifiers('-P(x,y)')
+# print(result, result == '-P(x,y)')
+# result = _reorder_quantifiers('-(P(x,y)^Ax-Ey-Az-EzAyExP(x,y))')
+# print(result, result == '-(P(x,y)^Ax-Ey-Az-EzAyExP(x,y))')
+# result = _reorder_quantifiers('Ax-Ey-Az-EzAyEx(P(x,y)>P(y,x))')
+# print(result, result == 'Ex-AzAx-Ey-EzAy(P(x,y)>P(y,x))')
+# result = _reorder_quantifiers('-Ax-Ey-Az-EzAyEx(P(x,y)>P(y,x))')
+# print(result, result == 'Ex-Az-Ax-Ey-EzAy(P(x,y)>P(y,x))')
+# result = _reorder_quantifiers('-Ax-Ey-Az-EzAyExP(x,y)')
+# print(result, result == 'Ex-Az-Ax-Ey-EzAyP(x,y)')
+# result = _reorder_quantifiers('-Ax-Ey-P(x,y)')
+# print(result, result == '-Ax-Ey-P(x,y)')
+# result = _reorder_quantifiers('-----------q')
+# print(result, result == '-Ax-Ey-P(x,y)')
+# result = _reorder_quantifiers('----Ax----Ey----P(x,y)')
+# print(result, result == 'EyAxP(x,y)')
