@@ -7,11 +7,13 @@ CONNECTIVES = ["^", "v", ">"]
 VAR = ["x", "y", "z", "w"]
 DEBUG_PARSER = False
 DEBUG_SAT = False
-CONSTANTS = [chr(97 + i) for i in range(MAX_CONSTANTS)]
+# CONSTANTS = [chr(97 + i) for i in range(MAX_CONSTANTS)]
 
 
 # Parse a formula, consult parseOutputs for return values.
-def parse(fmla):
+def parse(fmla, constants=None):
+    if constants is None:
+        constants = []
     result = 0
 
     if len(fmla) != 0:
@@ -21,7 +23,7 @@ def parse(fmla):
             # clean double negations
             while first_non_neg < len(fmla) and fmla[first_non_neg] == "-":
                 first_non_neg += 1
-            next_parsed = parse(fmla[first_non_neg:])
+            next_parsed = parse(fmla[first_non_neg:], constants)
             if next_parsed in [6, 8]:
                 result = 7  # Neg Proposition
             elif next_parsed in [3, 4, 5, 1]:
@@ -29,7 +31,7 @@ def parse(fmla):
         elif fmla[0] in QUANTIFIERS:
             # 3 / 4 / 0 - Quantified
             if fmla[1] in VAR:
-                next_parsed = parse(fmla[2:])
+                next_parsed = parse(fmla[2:], constants)
                 if next_parsed > 0:
                     # Ax / Ex
                     result = 3 if fmla[0] == QUANTIFIERS[0] else 4
@@ -37,8 +39,8 @@ def parse(fmla):
         elif fmla[0] == "(":
             # 5 / 8 / 0 - binary connectives
             if fmla[-1] == ")":
-                l_parsed = parse(lhs(fmla))
-                r_parsed = parse(rhs(fmla))
+                l_parsed = parse(lhs(fmla), constants)
+                r_parsed = parse(rhs(fmla), constants)
                 if DEBUG_PARSER:
                     print('>>', lhs(fmla), con(fmla), rhs(fmla))
                 if con(fmla) in CONNECTIVES and l_parsed > 0 and r_parsed > 0:
@@ -57,11 +59,13 @@ def parse(fmla):
                 inner_fmlas = fmla[2:-1].split(',')
                 if len(inner_fmlas) == 2:
                     for inner_fmla in inner_fmlas:
-                        if (inner_fmla not in VAR and inner_fmla not in CONSTANTS) and parse(inner_fmla) == 0:
+                        if (inner_fmla not in VAR and inner_fmla not in constants) and parse(inner_fmla, constants) == 0:
                             result = 0
                             break
                 else:
                     result = 0
+            else:
+                result = 0
     if DEBUG_PARSER:
         print(fmla, result)
     return result
@@ -118,11 +122,11 @@ def sat(tab):
 
     # determine whether a theory is fully expanded
     def _exp(this_theory):
-        for fml in this_theory:
-            if parse(fml) in [2, 7]:
-                if parse(fml[1:]) not in [1, 6]:
+        for this_formula in this_theory:
+            if parse(this_formula, constants) in [2, 7]:
+                if parse(this_formula[1:], constants) not in [1, 6]:
                     return False
-            elif parse(fml) not in [1, 6]:
+            elif parse(this_formula, constants) not in [1, 6]:
                 return False
         return True
 
@@ -149,12 +153,12 @@ def sat(tab):
         if DEBUG_SAT:
             print("theory:", this_theory)
         # this_theory = _reorder_quantifiers(this_theory)
-        fmla_parsed = parse(this_theory)
+        fmla_parsed = parse(this_theory, constants)
         if DEBUG_SAT:
             print("theory reordered:", this_theory, "parse result:", fmla_parsed)
         if fmla_parsed in [2, 7]:
             next_theory = this_theory[1:]
-            next_parsed = parse(next_theory)
+            next_parsed = parse(next_theory, constants)
             if next_parsed in [2, 7]:  # alpha 2
                 rlt['type'] = TYPES[0]
                 rlt['arg'] = [this_theory[2:]]
@@ -304,14 +308,14 @@ def sat(tab):
 
     def _reorder_quantifiers(this_fmla):
         this_fmla = _clean_double_neg(this_fmla)
-        if parse(this_fmla) < 6:
+        if parse(this_fmla, constants) < 6:
             reordered_quantifiers = ""
-            this_parsed = parse(this_fmla)
+            this_parsed = parse(this_fmla, constants)
             while this_parsed in [3, 4, 2]:
                 is_neg = this_parsed == 2
                 if is_neg:
                     this_fmla = this_fmla[1:]
-                    this_parsed = parse(this_fmla)
+                    this_parsed = parse(this_fmla, constants)
                 if this_parsed in [3, 4]:
                     if this_parsed == 3:  # Ax
                         if is_neg:  # -Ax
@@ -324,7 +328,7 @@ def sat(tab):
                         else:  # Ex
                             reordered_quantifiers = this_fmla[:2] + reordered_quantifiers
                     this_fmla = this_fmla[2:]
-                    this_parsed = parse(this_fmla)
+                    this_parsed = parse(this_fmla, constants)
                 elif this_parsed in [1, 5] and is_neg:
                     reordered_quantifiers += "-"
             reordered_quantifiers += this_fmla
@@ -334,9 +338,9 @@ def sat(tab):
 
     def _reorder_sigma(this_sigma):
         reordered_sigma = this_sigma.copy()
-        if parse(this_sigma[0]) == 3:
+        if parse(this_sigma[0], constants) == 3:
             for index, this_fmla in enumerate(this_sigma):
-                if parse(this_fmla) == 4:
+                if parse(this_fmla, constants) == 4:
                     reordered_sigma[0], reordered_sigma[index] = reordered_sigma[index], reordered_sigma[0]
         return reordered_sigma
 

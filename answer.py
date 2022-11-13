@@ -340,8 +340,6 @@ def sat(tab):
                     reordered_sigma[0], reordered_sigma[index] = reordered_sigma[index], reordered_sigma[0]
         return reordered_sigma
 
-
-
     # ########################################
     #       determine the satisfiability
     # ########################################
@@ -427,6 +425,14 @@ def sat(tab):
                                             tab.append(sig)
                                             found = True
                                             break
+                                    elif _c(sig):
+                                        if DEBUG_SAT:
+                                            print("find gamma contradiction")
+                                            print('sig:', sig)
+                                        found = True
+                                        result = 0
+                                        break
+
                         if found:
                             break
                     if not found:
@@ -453,9 +459,6 @@ def sat(tab):
     # output 1 if satisfiable,
     # output 2 if number of constants exceeds MAX_CONSTANTS
     return result
-
-
-
 
 # DO NOT MODIFY THE CODE BELOW
 f = open('input.txt')
