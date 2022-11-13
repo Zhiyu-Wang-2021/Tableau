@@ -1,3 +1,4 @@
 PARSE SAT
+(ExQ(x,x)^AxEyP(x,y))
 (AxAy(P(x,y)>-P(y,x))^-Ax-P(x,x))
 -(ExAyP(x,y)>AxEyP(y,x))

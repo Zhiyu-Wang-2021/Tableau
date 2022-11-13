@@ -214,7 +214,7 @@ def _reorder_sigma(this_sigma):
     return reordered_sigma
 
 
-print(_reorder_sigma(['AxAy(P(x,y)>-P(y,x))', '-Ax-P(x,x)']))
+# print(_reorder_sigma(['AxAy(P(x,y)>-P(y,x))', '-Ax-P(x,x)']))
 # result = _no_free_var('Ax(P(a,a)^Ex-P(a,x))', 'x')
 # result = _reorder_quantifiers('Ax-Ey-Az-EzAyExP(x,y)')
 # print(result, result == 'Ex-AzAx-Ey-EzAyP(x,y)')
@@ -234,3 +234,6 @@ print(_reorder_sigma(['AxAy(P(x,y)>-P(y,x))', '-Ax-P(x,x)']))
 # print(result, result == '-Ax-Ey-P(x,y)')
 # result = _reorder_quantifiers('----Ax----Ey----P(x,y)')
 # print(result, result == 'EyAxP(x,y)')
+
+ALLOWED_CONSTS = [chr(97 + i) for i in range(15)] + [chr(97 + i) for i in range(19, 22)]
+print(ALLOWED_CONSTS)
