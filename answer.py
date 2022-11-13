@@ -148,7 +148,7 @@ def sat(tab):
         }
         if DEBUG_SAT:
             print("theory:", this_theory)
-        this_theory = _reorder_quantifiers(this_theory)
+        # this_theory = _reorder_quantifiers(this_theory)
         fmla_parsed = parse(this_theory)
         if DEBUG_SAT:
             print("theory reordered:", this_theory, "parse result:", fmla_parsed)
