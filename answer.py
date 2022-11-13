@@ -6,14 +6,15 @@ PREDICATES = ["P", "Q", "R", "S"]
 CONNECTIVES = ["^", "v", ">"]
 VAR = ["x", "y", "z", "w"]
 DEBUG_PARSER = False
+DEBUG_CONSTS = False
 DEBUG_SAT = False
-# CONSTANTS = [chr(97 + i) for i in range(MAX_CONSTANTS)]
+
+ALLOWED_CONSTS = [chr(97 + i) for i in range(15)] + [chr(97 + i) for i in range(19, 22)]
+global_consts = []
 
 
 # Parse a formula, consult parseOutputs for return values.
-def parse(fmla, constants=None):
-    if constants is None:
-        constants = []
+def parse(fmla):
     result = 0
 
     if len(fmla) != 0:
@@ -23,7 +24,7 @@ def parse(fmla, constants=None):
             # clean double negations
             while first_non_neg < len(fmla) and fmla[first_non_neg] == "-":
                 first_non_neg += 1
-            next_parsed = parse(fmla[first_non_neg:], constants)
+            next_parsed = parse(fmla[first_non_neg:])
             if next_parsed in [6, 8]:
                 result = 7  # Neg Proposition
             elif next_parsed in [3, 4, 5, 1]:
@@ -31,7 +32,7 @@ def parse(fmla, constants=None):
         elif fmla[0] in QUANTIFIERS:
             # 3 / 4 / 0 - Quantified
             if fmla[1] in VAR:
-                next_parsed = parse(fmla[2:], constants)
+                next_parsed = parse(fmla[2:])
                 if next_parsed > 0:
                     # Ax / Ex
                     result = 3 if fmla[0] == QUANTIFIERS[0] else 4
@@ -39,8 +40,8 @@ def parse(fmla, constants=None):
         elif fmla[0] == "(":
             # 5 / 8 / 0 - binary connectives
             if fmla[-1] == ")":
-                l_parsed = parse(lhs(fmla), constants)
-                r_parsed = parse(rhs(fmla), constants)
+                l_parsed = parse(lhs(fmla))
+                r_parsed = parse(rhs(fmla))
                 if DEBUG_PARSER:
                     print('>>', lhs(fmla), con(fmla), rhs(fmla))
                 if con(fmla) in CONNECTIVES and l_parsed > 0 and r_parsed > 0:
@@ -59,9 +60,13 @@ def parse(fmla, constants=None):
                 inner_fmlas = fmla[2:-1].split(',')
                 if len(inner_fmlas) == 2:
                     for inner_fmla in inner_fmlas:
-                        if (inner_fmla not in VAR and inner_fmla not in constants) and parse(inner_fmla, constants) == 0:
+                        if (inner_fmla not in VAR and inner_fmla not in ALLOWED_CONSTS) and parse(inner_fmla) == 0:
                             result = 0
                             break
+                        elif inner_fmla in ALLOWED_CONSTS:
+                            global global_consts
+                            if inner_fmla not in global_consts:
+                                global_consts += inner_fmla
                 else:
                     result = 0
             else:
@@ -117,17 +122,18 @@ def theory(fmla):  # initialise a theory with a single formula in it
 # Tableau tab is [theory(fmla)]
 def sat(tab):
     TYPES = ['a', 'b', 'd', 'y', 'p']
-    constants = []
+    global global_consts
+    constants = global_consts
 
     used_constants_by = {}
 
     # determine whether a theory is fully expanded
     def _exp(this_theory):
         for this_formula in this_theory:
-            if parse(this_formula, constants) in [2, 7]:
-                if parse(this_formula[1:], constants) not in [1, 6]:
+            if parse(this_formula) in [2, 7]:
+                if parse(this_formula[1:]) not in [1, 6]:
                     return False
-            elif parse(this_formula, constants) not in [1, 6]:
+            elif parse(this_formula) not in [1, 6]:
                 return False
         return True
 
@@ -144,6 +150,13 @@ def sat(tab):
             exist.append(fml)
         return False
 
+    def _add_const():
+        for constant in ALLOWED_CONSTS:
+            if constant not in constants:
+                constants.append(constant)
+                return
+        if DEBUG_CONSTS:
+            print("err all const tried and cannot add more")
     # determine which type of action to take
     # and the arguments needed
     def _sai(this_theory):
@@ -154,12 +167,12 @@ def sat(tab):
         if DEBUG_SAT:
             print("theory:", this_theory)
         # this_theory = _reorder_quantifiers(this_theory)
-        fmla_parsed = parse(this_theory, constants)
+        fmla_parsed = parse(this_theory)
         if DEBUG_SAT:
             print("theory reordered:", this_theory, "parse result:", fmla_parsed)
         if fmla_parsed in [2, 7]:
             next_theory = this_theory[1:]
-            next_parsed = parse(next_theory, constants)
+            next_parsed = parse(next_theory)
             if next_parsed in [2, 7]:  # alpha 2
                 rlt['type'] = TYPES[0]
                 rlt['arg'] = [this_theory[2:]]
@@ -186,7 +199,8 @@ def sat(tab):
                         print('!!!!!!!!! reach max constant !!!!!!!!')
                 else:
                     rlt['type'] = TYPES[2]
-                    constants.append(chr(97 + len(constants)))
+                    _add_const()
+                    # constants.append(chr(97 + len(constants)))
                     if DEBUG_SAT:
                         print('constants:', constants, 'len:', len(constants))
                     rlt['arg'] = ['-' + next_theory[2:], next_theory[1], constants[-1]]
@@ -219,7 +233,8 @@ def sat(tab):
                     print('!!!!!!!!! reach max constant !!!!!!!!')
             else:
                 rlt['type'] = TYPES[2]
-                constants.append(chr(97 + len(constants)))
+                _add_const()
+                # constants.append(chr(97 + len(constants)))
                 if DEBUG_SAT:
                     print('constants:', constants, 'len:', len(constants))
                 rlt['arg'] = [this_theory[2:], this_theory[1], constants[-1]]
@@ -234,7 +249,7 @@ def sat(tab):
 
     def _replace_in_scope(this_fmla, target, sub):
         if DEBUG_SAT:
-            print(this_fmla, target, sub)
+            print("replacing...", this_fmla, target, sub)
         is_inner = False
         is_quantifier = False
         num_left = 0
@@ -267,7 +282,7 @@ def sat(tab):
 
     def _no_free_var(this_fmla, target):
         if DEBUG_SAT:
-            print(this_fmla, target)
+            print("searching for free var... ", this_fmla, target)
         is_inner = False
         is_quantifier = False
         num_left = 0
@@ -309,14 +324,14 @@ def sat(tab):
 
     def _reorder_quantifiers(this_fmla):
         this_fmla = _clean_double_neg(this_fmla)
-        if parse(this_fmla, constants) < 6:
+        if parse(this_fmla) < 6:
             reordered_quantifiers = ""
-            this_parsed = parse(this_fmla, constants)
+            this_parsed = parse(this_fmla)
             while this_parsed in [3, 4, 2]:
                 is_neg = this_parsed == 2
                 if is_neg:
                     this_fmla = this_fmla[1:]
-                    this_parsed = parse(this_fmla, constants)
+                    this_parsed = parse(this_fmla)
                 if this_parsed in [3, 4]:
                     if this_parsed == 3:  # Ax
                         if is_neg:  # -Ax
@@ -329,7 +344,7 @@ def sat(tab):
                         else:  # Ex
                             reordered_quantifiers = this_fmla[:2] + reordered_quantifiers
                     this_fmla = this_fmla[2:]
-                    this_parsed = parse(this_fmla, constants)
+                    this_parsed = parse(this_fmla)
                 elif this_parsed in [1, 5] and is_neg:
                     reordered_quantifiers += "-"
             reordered_quantifiers += this_fmla
@@ -339,7 +354,7 @@ def sat(tab):
 
     def _reorder_sigma(this_sigma):
         reordered_sigma = this_sigma.copy()
-        if parse(this_sigma[0], constants) == 3:
+        if parse(this_sigma[0]) == 3:
             for index, this_fmla in enumerate(this_sigma):
                 if this_fmla[:2] == '-A' or this_fmla[0] == 'E':
                     reordered_sigma[0], reordered_sigma[index] = reordered_sigma[index], reordered_sigma[0]
@@ -468,7 +483,11 @@ def sat(tab):
     # output 0 if not satisfiable,
     # output 1 if satisfiable,
     # output 2 if number of constants exceeds MAX_CONSTANTS
+
+    global_consts = []
+
     return result
+
 
 # DO NOT MODIFY THE CODE BELOW
 f = open('input.txt')
