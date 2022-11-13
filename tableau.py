@@ -1,5 +1,5 @@
 MAX_CONSTANTS = 10
-MAX_EXPAND = 30
+MAX_EXPAND = 1000
 QUANTIFIERS = ["A", "E"]
 PROPOSITIONS = ["p", "q", "r", "s"]
 PREDICATES = ["P", "Q", "R", "S"]
@@ -55,10 +55,13 @@ def parse(fmla):
             result = 1
             if fmla[1] == "(" and fmla[-1] == ")":
                 inner_fmlas = fmla[2:-1].split(',')
-                for inner_fmla in inner_fmlas:
-                    if (inner_fmla not in VAR and inner_fmla not in CONSTANTS) and parse(inner_fmla) == 0:
-                        result = 0
-                        break
+                if len(inner_fmlas) == 2:
+                    for inner_fmla in inner_fmlas:
+                        if (inner_fmla not in VAR and inner_fmla not in CONSTANTS) and parse(inner_fmla) == 0:
+                            result = 0
+                            break
+                else:
+                    result = 0
     if DEBUG_PARSER:
         print(fmla, result)
     return result
@@ -167,13 +170,15 @@ def sat(tab):
                     rlt['type'] = TYPES[0]
                     rlt['arg'] = [lhs(next_theory), '-' + rhs(next_theory)]
                 else:
-                    print('err 2,7')
+                    if DEBUG_SAT:
+                        print('err 2,7')
             elif next_parsed == 4:  # quantifier -E, y
                 rlt['type'] = TYPES[3]
                 rlt['arg'] = ['-' + next_theory[2:], next_theory[1], this_theory]
             elif next_parsed == 3:  # quantifier -A, d
                 if len(constants) == MAX_CONSTANTS:
-                    print('err max')
+                    if DEBUG_SAT:
+                        print('err max')
                 else:
                     rlt['type'] = TYPES[2]
                     constants.append(chr(97 + len(constants)))
@@ -205,7 +210,8 @@ def sat(tab):
             rlt['arg'] = [this_theory[2:], this_theory[1], this_theory]
         elif fmla_parsed == 4:  # quantifier E, d
             if len(constants) == MAX_CONSTANTS:
-                print('err max')
+                if DEBUG_SAT:
+                    print('err max')
             else:
                 rlt['type'] = TYPES[2]
                 constants.append(chr(97 + len(constants)))

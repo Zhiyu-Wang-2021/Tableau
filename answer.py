@@ -1,5 +1,5 @@
 MAX_CONSTANTS = 10
-MAX_EXPAND = 30
+MAX_EXPAND = 1000
 QUANTIFIERS = ["A", "E"]
 PROPOSITIONS = ["p", "q", "r", "s"]
 PREDICATES = ["P", "Q", "R", "S"]
@@ -55,10 +55,13 @@ def parse(fmla):
             result = 1
             if fmla[1] == "(" and fmla[-1] == ")":
                 inner_fmlas = fmla[2:-1].split(',')
-                for inner_fmla in inner_fmlas:
-                    if (inner_fmla not in VAR and inner_fmla not in CONSTANTS) and parse(inner_fmla) == 0:
-                        result = 0
-                        break
+                if len(inner_fmlas) == 2:
+                    for inner_fmla in inner_fmlas:
+                        if (inner_fmla not in VAR and inner_fmla not in CONSTANTS) and parse(inner_fmla) == 0:
+                            result = 0
+                            break
+                else:
+                    result = 0
     if DEBUG_PARSER:
         print(fmla, result)
     return result
@@ -143,9 +146,12 @@ def sat(tab):
             "type": None,
             "arg": None
         }
+        if DEBUG_SAT:
+            print("theory:", this_theory)
+        this_theory = _reorder_quantifiers(this_theory)
         fmla_parsed = parse(this_theory)
         if DEBUG_SAT:
-            print("theory:", this_theory, "parse result:", fmla_parsed)
+            print("theory reordered:", this_theory, "parse result:", fmla_parsed)
         if fmla_parsed in [2, 7]:
             next_theory = this_theory[1:]
             next_parsed = parse(next_theory)
@@ -164,21 +170,26 @@ def sat(tab):
                     rlt['type'] = TYPES[0]
                     rlt['arg'] = [lhs(next_theory), '-' + rhs(next_theory)]
                 else:
-                    print('err 2,7')
+                    if DEBUG_SAT:
+                        print('err 2,7')
             elif next_parsed == 4:  # quantifier -E, y
                 rlt['type'] = TYPES[3]
                 rlt['arg'] = ['-' + next_theory[2:], next_theory[1], this_theory]
             elif next_parsed == 3:  # quantifier -A, d
                 if len(constants) == MAX_CONSTANTS:
-                    print('err max')
+                    if DEBUG_SAT:
+                        print('err max')
                 else:
                     rlt['type'] = TYPES[2]
                     constants.append(chr(97 + len(constants)))
                     if DEBUG_SAT:
                         print('constants:', constants, 'len:', len(constants))
                     rlt['arg'] = ['-' + next_theory[2:], next_theory[1], constants[-1]]
-            elif next_parsed in [1, 6] and DEBUG_SAT:
-                print('sai neg 1, 6')
+            elif next_parsed in [1, 6]:
+                if DEBUG_SAT:
+                    print('sai 1, 6')
+                rlt['type'] = TYPES[4]
+                rlt['arg'] = [this_theory]
             elif DEBUG_SAT:
                 print('err')
         elif fmla_parsed in [5, 8]:
@@ -199,7 +210,8 @@ def sat(tab):
             rlt['arg'] = [this_theory[2:], this_theory[1], this_theory]
         elif fmla_parsed == 4:  # quantifier E, d
             if len(constants) == MAX_CONSTANTS:
-                print('err max')
+                if DEBUG_SAT:
+                    print('err max')
             else:
                 rlt['type'] = TYPES[2]
                 constants.append(chr(97 + len(constants)))
@@ -221,10 +233,10 @@ def sat(tab):
         is_inner = False
         is_quantifier = False
         num_left = 0
-        rlt = ""
-        for i in range(len(this_fmla)):
+        rlt = this_fmla[:2]
+        for i in range(len(this_fmla) - 2):
 
-            this_char = this_fmla[i]
+            this_char = this_fmla[i + 2]
 
             if not is_quantifier:
                 if not is_inner:
@@ -248,6 +260,88 @@ def sat(tab):
             rlt += this_char
         return rlt
 
+    def _no_free_var(this_fmla, target):
+        if DEBUG_SAT:
+            print(this_fmla, target)
+        is_inner = False
+        is_quantifier = False
+        num_left = 0
+        rlt = True
+        for i in range(len(this_fmla) - 2):
+
+            this_char = this_fmla[i + 2]
+
+            if not is_quantifier:
+                if not is_inner:
+                    if this_char in QUANTIFIERS:
+                        is_inner = True
+                        is_quantifier = True
+                    elif this_char == target:
+                        rlt = False
+                        break
+                else:
+                    if this_char == '(':
+                        num_left += 1
+                    elif this_char == ')':
+                        num_left -= 1
+                    elif num_left == 0 and this_char in CONNECTIVES:
+                        is_inner = False
+            else:
+                if this_char != target:
+                    is_inner = False
+                is_quantifier = False
+
+        return rlt
+
+    def _clean_double_neg(this_fmla):
+        rlt = []
+        for c in this_fmla:
+            if c == '-' and len(rlt) > 0 and rlt[-1] == '-':
+                rlt.pop()
+            else:
+                rlt.append(c)
+        return ''.join(rlt)
+
+    def _reorder_quantifiers(this_fmla):
+        this_fmla = _clean_double_neg(this_fmla)
+        if parse(this_fmla) < 6:
+            reordered_quantifiers = ""
+            this_parsed = parse(this_fmla)
+            while this_parsed in [3, 4, 2]:
+                is_neg = this_parsed == 2
+                if is_neg:
+                    this_fmla = this_fmla[1:]
+                    this_parsed = parse(this_fmla)
+                if this_parsed in [3, 4]:
+                    if this_parsed == 3:  # Ax
+                        if is_neg:  # -Ax
+                            reordered_quantifiers = '-' + this_fmla[:2] + reordered_quantifiers
+                        else:  # Ax
+                            reordered_quantifiers += this_fmla[:2]
+                    elif this_parsed == 4:
+                        if is_neg:  # -Ex
+                            reordered_quantifiers += '-' + this_fmla[:2]
+                        else:  # Ex
+                            reordered_quantifiers = this_fmla[:2] + reordered_quantifiers
+                    this_fmla = this_fmla[2:]
+                    this_parsed = parse(this_fmla)
+                elif this_parsed in [1, 5] and is_neg:
+                    reordered_quantifiers += "-"
+            reordered_quantifiers += this_fmla
+            return reordered_quantifiers
+        else:
+            return this_fmla
+
+    def _reorder_sigma(this_sigma):
+        reordered_sigma = this_sigma.copy()
+        if parse(this_sigma[0]) == 3:
+            for index, this_fmla in enumerate(this_sigma):
+                if parse(this_fmla) == 4:
+                    reordered_sigma[0], reordered_sigma[index] = reordered_sigma[index], reordered_sigma[0]
+        return reordered_sigma
+
+
+
     # ########################################
     #       determine the satisfiability
     # ########################################
@@ -261,6 +355,7 @@ def sat(tab):
             print("////////////  TAB  ////////////\n")
         # sigma this a theory
         sigma = tab.pop(0)
+        sigma = _reorder_sigma(sigma)
         if _exp(sigma) and not _c(sigma):
             if DEBUG_SAT:
                 print(">> fully expanded and no contradiction", sigma)
@@ -305,36 +400,44 @@ def sat(tab):
                     tab.append(sig)
             elif sai['type'] == TYPES[3]:  # gama
                 if DEBUG_SAT:
-                    print("!!!!!!!!!!!!!!!!!!!!")
+                    print("!!!!!!!!! Gama !!!!!!!!!!!")
                 # for each char in all formulas in sigma
-                found = False
-                for fml in sigma:
-                    for c in fml:
-                        if c in constants:
-                            # arg = [args[0].replace(args[1], c)]
-                            arg = [_replace_in_scope(args[0], args[1], c)]
-                            original_fmla = args[2]
-                            if arg not in sigma:
-                                sig = rest_of_sigma.copy() + arg + [original_fmla]
-                                if not _c(sig) and sig not in tab:
-                                    if original_fmla not in used_constants_by.keys():
-                                        used_constants_by[original_fmla] = [c]
-                                    elif c not in used_constants_by[original_fmla]:
-                                        used_constants_by[original_fmla].append(c)
-                                        tab.append(sig)
-                                        found = True
-                                        break
-                    if found:
-                        break
-                if not found:
-                    if DEBUG_SAT:
-                        print("discard Ax as all case tried")
-                    tab.append(rest_of_sigma.copy())
+                original_fmla = args[2]
+                this_target = args[1]
+                if _no_free_var(original_fmla, this_target):
+                    tab.append([original_fmla[2:]])
                 else:
-                    if DEBUG_SAT:
-                        print("----------USED CONSTANT------------")
-                        print(used_constants_by)
-                        print("----------USED CONSTANT------------")
+                    found = False
+                    for fml in sigma:
+                        for c in fml:
+                            if c in constants:
+                                # arg = [args[0].replace(args[1], c)]
+                                arg = [_replace_in_scope(args[0], this_target, c)]
+
+                                if arg not in sigma:
+                                    sig = rest_of_sigma.copy() + arg + [original_fmla]
+                                    if not _c(sig) and sig not in tab:
+                                        if original_fmla not in used_constants_by.keys():
+                                            used_constants_by[original_fmla] = [c]
+                                            tab.append(sig)
+                                            found = True
+                                            break
+                                        elif c not in used_constants_by[original_fmla]:
+                                            used_constants_by[original_fmla].append(c)
+                                            tab.append(sig)
+                                            found = True
+                                            break
+                        if found:
+                            break
+                    if not found:
+                        if DEBUG_SAT:
+                            print("discard Ax as all case tried")
+                        tab.append(rest_of_sigma.copy())
+                    else:
+                        if DEBUG_SAT:
+                            print("----------USED CONSTANT------------")
+                            print(used_constants_by)
+                            print("----------USED CONSTANT------------")
             elif sai['type'] == TYPES[4]:  # 1, 6
                 tab.append(rest_of_sigma + [args[0]])
     if expand_count >= MAX_EXPAND:
@@ -350,6 +453,8 @@ def sat(tab):
     # output 1 if satisfiable,
     # output 2 if number of constants exceeds MAX_CONSTANTS
     return result
+
+
 
 
 # DO NOT MODIFY THE CODE BELOW
